@@ -5,6 +5,8 @@
 
 #ifdef CONFIG_TASK_ISOLATION
 
+#include <linux/preempt.h>
+
 struct task_isol_info {
 	/* Which features have been configured */
 	u64 conf_mask;
@@ -17,6 +19,8 @@ struct task_isol_info {
 	u64 oneshot_mask;
 
 	u8 inherit_mask;
+
+	struct preempt_notifier preempt_notifier;
 };
 
 extern void __task_isol_free(struct task_struct *tsk);
