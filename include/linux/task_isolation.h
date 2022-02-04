@@ -7,6 +7,8 @@
 
 #include <linux/preempt.h>
 
+#include <uapi/linux/prctl.h>
+
 struct task_isol_info {
 	/* Which features have been configured */
 	u64 conf_mask;
@@ -52,6 +54,24 @@ int prctl_task_isol_activate_set(unsigned long arg2, unsigned long arg3,
 int __copy_task_isol(struct task_struct *tsk);
 
 void task_isol_exit_to_user_mode(void);
+
+static inline bool task_isol_quiesce_activated(struct task_struct *tsk,
+					       u64 quiesce_mask)
+{
+	struct task_isol_info *i;
+
+	i = tsk->task_isol_info;
+	if (!i)
+		return false;
+
+	if (i->active_mask != ISOL_F_QUIESCE)
+		return false;
+
+	if ((i->quiesce_mask & quiesce_mask) == quiesce_mask)
+		return true;
+
+	return false;
+}
 
 #else
 
@@ -105,6 +125,12 @@ static inline int prctl_task_isol_activate_set(unsigned long arg2,
 					       unsigned long arg5)
 {
 	return -EOPNOTSUPP;
+}
+
+static inline bool task_isol_quiesce_activated(struct task_struct *tsk,
+					       u64 quiesce_mask)
+{
+	return false;
 }
 
 #endif /* CONFIG_TASK_ISOLATION */
