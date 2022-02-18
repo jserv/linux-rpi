@@ -677,7 +677,7 @@ config CPU_ISOLATION
 
 config TASK_ISOLATION
 	bool "Task isolation prctl()"
-	depends on GENERIC_ENTRY
+	depends on GENERIC_ENTRY || ARM64
 	default n
 	help
 	  Certain types of applications benefit from running uninterrupted by

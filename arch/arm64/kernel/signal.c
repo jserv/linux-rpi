@@ -20,6 +20,7 @@
 #include <linux/tracehook.h>
 #include <linux/ratelimit.h>
 #include <linux/syscalls.h>
+#include <linux/task_isolation.h>
 
 #include <asm/daifflags.h>
 #include <asm/debug-monitors.h>
@@ -945,6 +946,9 @@ void do_notify_resume(struct pt_regs *regs, unsigned long thread_flags)
 
 			if (thread_flags & _TIF_FOREIGN_FPSTATE)
 				fpsimd_restore_current_state();
+
+			if (thread_flags & _TIF_TASK_ISOL)
+				task_isol_exit_to_user_mode();
 		}
 
 		local_daif_mask();
