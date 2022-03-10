@@ -26,6 +26,10 @@
 #include <linux/sched.h>
 #include "trace.h"
 
+#ifdef CONFIG_TASK_ISOLATION
+#include <linux/task_isolation.h>
+#endif /* CONFIG_TASK_ISOLATION */
+
 #ifdef CONFIG_X86_LOCAL_APIC
 #include <asm/trace/irq_vectors.h>
 #undef TRACE_INCLUDE_PATH
@@ -87,6 +91,15 @@ struct osn_thread {
 	u64	delta_start;
 };
 
+#ifdef CONFIG_TASK_ISOLATION
+enum {
+	CONF_NONE = 0,
+	CONF_VMSTAT,
+	TASKISOL_CONF_MAX
+};
+static char *taskisol_conf_str[] = { "none", "vmstat" };
+#endif
+
 /*
  * Runtime information: this structure saves the runtime information used by
  * one sampling thread.
@@ -101,6 +114,10 @@ struct osnoise_variables {
 	struct osn_thread	thread;
 	local_t			int_counter;
 };
+
+#ifdef CONFIG_TASK_ISOLATION
+static int	taskisol_conf;
+#endif
 
 /*
  * Per-cpu runtime information.
@@ -1136,6 +1153,10 @@ static int run_osnoise(void)
 	runtime = osnoise_data.sample_runtime * NSEC_PER_USEC;
 	stop_in = osnoise_data.stop_tracing * NSEC_PER_USEC;
 
+#ifdef CONFIG_TASK_ISOLATION
+	/* TODO: config and activate task isolation */
+#endif /* CONFIG_TASK_ISOLATION */
+
 	/*
 	 * Start timestemp
 	 */
@@ -1210,6 +1231,10 @@ static int run_osnoise(void)
 	 * Finish the above in the view for interrupts.
 	 */
 	barrier();
+
+#ifdef CONFIG_TASK_ISOLATION
+	/* TODO: disable task isolation */
+#endif /* CONFIG_TASK_ISOLATION */
 
 	osn_var->sampling = false;
 
@@ -1763,6 +1788,53 @@ err_free:
 	return err;
 }
 
+#ifdef CONFIG_TASK_ISOLATION
+static ssize_t taskisol_conf_write(struct file *filp, const char __user *ubuf,
+				 size_t cnt, loff_t *ppos)
+{
+	struct trace_array *tr = osnoise_trace;
+	bool running;
+	const char *conf;
+	char buf[64];
+	int ret, i;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, cnt))
+		return -EINVAL;
+
+	buf[cnt] = 0;
+
+	conf = strstrip(buf);
+
+	ret = -EINVAL;
+
+	mutex_lock(&trace_types_lock);
+	running = osnoise_busy;
+	if (running)
+		osnoise_tracer_stop(tr);
+
+	mutex_lock(&interface_lock);
+	for (i = 0; i < TASKISOL_CONF_MAX; i++) {
+		if (strcmp(conf, taskisol_conf_str[i]) == 0) {
+			taskisol_conf = i;
+			ret = cnt;
+		}
+	}
+	mutex_unlock(&interface_lock);
+
+	if (running)
+		osnoise_tracer_start(tr);
+
+	mutex_unlock(&trace_types_lock);
+
+	*ppos += cnt;
+
+	return ret;
+}
+#endif /* CONFIG_TASK_ISOLATION */
+
 /*
  * osnoise/runtime_us: cannot be greater than the period.
  */
@@ -1835,6 +1907,72 @@ static const struct file_operations cpus_fops = {
 	.llseek		= generic_file_llseek,
 };
 
+#ifdef CONFIG_TASK_ISOLATION
+static void *s_conf_start(struct seq_file *s, loff_t *pos)
+{
+	int conf = *pos;
+
+	mutex_lock(&interface_lock);
+
+	if (conf >= TASKISOL_CONF_MAX)
+		return NULL;
+
+	return pos;
+}
+
+static void *s_conf_next(struct seq_file *s, void *v, loff_t *pos)
+{
+	int conf = ++(*pos);
+
+	if (conf >= TASKISOL_CONF_MAX)
+		return NULL;
+
+	return pos;
+}
+
+static int s_conf_show(struct seq_file *s, void *v)
+{
+	loff_t *pos = v;
+	int conf = *pos;
+
+	if (conf == taskisol_conf)
+		seq_printf(s, "[%s]", taskisol_conf_str[conf]);
+	else
+		seq_printf(s, "%s", taskisol_conf_str[conf]);
+
+	if (conf != TASKISOL_CONF_MAX)
+		seq_printf(s, " ");
+
+	return 0;
+}
+
+static void s_conf_stop(struct seq_file *s, void *v)
+{
+	seq_puts(s, "\n");
+	mutex_unlock(&interface_lock);
+}
+
+static const struct seq_operations taskisol_conf_seq_ops = {
+	.start		= s_conf_start,
+	.next		= s_conf_next,
+	.show		= s_conf_show,
+	.stop		= s_conf_stop
+};
+
+static int taskisol_conf_open(struct inode *node, struct file *file)
+{
+	return seq_open(file, &taskisol_conf_seq_ops);
+}
+
+static const struct file_operations taskisol_fops = {
+	.open		= taskisol_conf_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+	.write		= taskisol_conf_write
+};
+#endif
+
 /*
  * init_tracefs - A function to initialize the tracefs interface files
  *
@@ -1892,6 +2030,11 @@ static int init_tracefs(void)
 	if (!tmp)
 		goto err;
 #endif
+
+#ifdef CONFIG_TASK_ISOLATION
+	tmp = tracefs_create_file("task_isolation", TRACE_MODE_WRITE, top_dir,
+				  NULL, &taskisol_fops);
+#endif /* CONFIG_TASK_ISOLATION */
 
 	return 0;
 
