@@ -27,6 +27,7 @@
 #include "trace.h"
 
 #ifdef CONFIG_TASK_ISOLATION
+#include <linux/prctl.h>
 #include <linux/task_isolation.h>
 #endif /* CONFIG_TASK_ISOLATION */
 
@@ -1124,6 +1125,9 @@ static int run_osnoise(void)
 	u64 sum_noise = 0;
 	int hw_count = 0;
 	int ret = -1;
+#ifdef CONFIG_TASK_ISOLATION
+	struct task_isol_quiesce_control qctrl = { 0 };
+#endif
 
 	/*
 	 * Considers the current thread as the workload.
@@ -1155,6 +1159,12 @@ static int run_osnoise(void)
 
 #ifdef CONFIG_TASK_ISOLATION
 	/* TODO: config and activate task isolation */
+	if (taskisol_conf == CONF_VMSTAT) {
+		qctrl.quiesce_mask = ISOL_F_QUIESCE_VMSTATS;
+		task_isol_cfg_feat_quiesce_set(QUIESCE_CONTROL, &qctrl);
+
+		task_isol_activate_set(ISOL_F_QUIESCE);
+	}
 #endif /* CONFIG_TASK_ISOLATION */
 
 	/*
@@ -1234,6 +1244,9 @@ static int run_osnoise(void)
 
 #ifdef CONFIG_TASK_ISOLATION
 	/* TODO: disable task isolation */
+	if (taskisol_conf == CONF_VMSTAT) {
+		task_isol_activate_set(0);
+	}
 #endif /* CONFIG_TASK_ISOLATION */
 
 	osn_var->sampling = false;
