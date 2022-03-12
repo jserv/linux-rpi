@@ -51,6 +51,11 @@ int prctl_task_isol_activate_get(unsigned long arg2, unsigned long arg3,
 int prctl_task_isol_activate_set(unsigned long arg2, unsigned long arg3,
 				 unsigned long arg4, unsigned long arg5);
 
+/* API for kthread */
+int task_isol_cfg_feat_quiesce_set(unsigned long arg4,
+				   struct task_isol_quiesce_control *arg5);
+int task_isol_activate_set(unsigned long arg2);
+
 int __copy_task_isol(struct task_struct *tsk);
 
 void task_isol_exit_to_user_mode(void);

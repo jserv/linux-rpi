@@ -304,6 +304,54 @@ out_free:
 	return ret;
 }
 
+int task_isol_cfg_feat_quiesce_set(unsigned long arg4,
+				   struct task_isol_quiesce_control *arg5)
+{
+	struct task_isol_info *task_isol_info;
+	int ret = 0;
+
+	if (arg4 != QUIESCE_CONTROL)
+		return -EINVAL;
+
+	if (!arg5)
+		return -ENOMEM;
+
+	ret = -EINVAL;
+	if (arg5->flags != 0)
+		goto out;
+
+	if (arg5->quiesce_mask != ISOL_F_QUIESCE_VMSTATS &&
+	    arg5->quiesce_mask != 0)
+		goto out;
+
+	if ((~arg5->quiesce_mask & arg5->quiesce_oneshot_mask) != 0)
+		goto out;
+
+	/* current->task_isol_info is only allocated/freed from task
+	 * context.
+	 */
+	if (!current->task_isol_info) {
+		task_isol_info = task_isol_alloc_context();
+		if (IS_ERR(task_isol_info)) {
+			ret = PTR_ERR(task_isol_info);
+			goto out;
+		}
+		current->task_isol_info = task_isol_info;
+	}
+
+	task_isol_info = current->task_isol_info;
+
+	task_isol_info->quiesce_mask = arg5->quiesce_mask;
+	task_isol_info->oneshot_mask = arg5->quiesce_oneshot_mask;
+	task_isol_info->conf_mask |= ISOL_F_QUIESCE;
+	if (task_isol_info->quiesce_mask & ISOL_F_QUIESCE_VMSTATS)
+		set_thread_flag(TIF_TASK_ISOL);
+
+	ret = 0;
+
+out:
+	return ret;
+}
 int prctl_task_isol_cfg_set(unsigned long arg2, unsigned long arg3,
 				 unsigned long arg4, unsigned long arg5)
 {
@@ -374,6 +422,27 @@ int prctl_task_isol_activate_set(unsigned long arg2, unsigned long arg3,
 		return ret;
 
 	task_isol_info->active_mask = active_mask;
+	set_thread_flag(TIF_TASK_ISOL);
+	ret = 0;
+
+out:
+	return ret;
+}
+
+int task_isol_activate_set(unsigned long arg2)
+{
+	int ret;
+	struct task_isol_info *task_isol_info;
+
+	ret = -EINVAL;
+	if (arg2 != ISOL_F_QUIESCE && arg2 != 0)
+		return ret;
+
+	task_isol_info = current->task_isol_info;
+	if (!task_isol_info)
+		return ret;
+
+	task_isol_info->active_mask = arg2;
 	set_thread_flag(TIF_TASK_ISOL);
 	ret = 0;
 
