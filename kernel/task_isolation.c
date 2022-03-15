@@ -18,6 +18,12 @@
 #include <linux/sysfs.h>
 #include <linux/init.h>
 #include <linux/sched/task.h>
+#include <linux/mm.h>
+#include <linux/vmstat.h>
+
+void __task_isol_exit(struct task_struct *tsk)
+{
+}
 
 void __task_isol_free(struct task_struct *tsk)
 {
@@ -251,6 +257,11 @@ static int cfg_feat_quiesce_set(unsigned long arg4, unsigned long arg5)
 	info->quiesce_mask = i_qctrl->quiesce_mask;
 	info->oneshot_mask = i_qctrl->quiesce_oneshot_mask;
 	info->conf_mask |= ISOL_F_QUIESCE;
+
+	if ((info->active_mask & ISOL_F_QUIESCE) &&
+	    (info->quiesce_mask & ISOL_F_QUIESCE_VMSTATS))
+		set_thread_flag(TIF_TASK_ISOL);
+
 	ret = 0;
 
 out_free:
@@ -303,6 +314,7 @@ int __copy_task_isol(struct task_struct *tsk)
 		new_info->active_mask = info->active_mask;
 
 	tsk->task_isol_info = new_info;
+	set_ti_thread_flag(task_thread_info(tsk), TIF_TASK_ISOL);
 
 	return 0;
 }
@@ -330,6 +342,10 @@ int prctl_task_isol_activate_set(unsigned long arg2, unsigned long arg3,
 	info->active_mask = active_mask;
 	ret = 0;
 
+	if ((info->active_mask & ISOL_F_QUIESCE) &&
+	    (info->quiesce_mask & ISOL_F_QUIESCE_VMSTATS))
+		set_thread_flag(TIF_TASK_ISOL);
+
 out:
 	return ret;
 }
@@ -349,3 +365,24 @@ int prctl_task_isol_activate_get(unsigned long arg2, unsigned long arg3,
 
 	return 0;
 }
+
+void task_isol_exit_to_user_mode(void)
+{
+	struct task_isol_info *i;
+
+	clear_thread_flag(TIF_TASK_ISOL);
+
+	i = current->task_isol_info;
+	if (!i)
+		return;
+
+	if (i->active_mask != ISOL_F_QUIESCE)
+		return;
+
+	if (i->quiesce_mask & ISOL_F_QUIESCE_VMSTATS) {
+		sync_vmstat();
+		if (i->oneshot_mask & ISOL_F_QUIESCE_VMSTATS)
+			i->quiesce_mask &= ~ISOL_F_QUIESCE_VMSTATS;
+	}
+}
+EXPORT_SYMBOL_GPL(task_isol_exit_to_user_mode);
