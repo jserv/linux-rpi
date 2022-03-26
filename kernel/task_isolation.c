@@ -420,5 +420,11 @@ void task_isol_exit_to_user_mode(void)
 		if (i->oneshot_mask & ISOL_F_QUIESCE_VMSTATS)
 			i->quiesce_mask &= ~ISOL_F_QUIESCE_VMSTATS;
 	}
+
+	if (i->quiesce_mask & ISOL_F_QUIESCE_SCHED_TICK) {
+		// TODO: clean up jobs before returning to userspace
+		if (i->oneshot_mask & ISOL_F_QUIESCE_SCHED_TICK)
+			i->quiesce_mask &= ~ISOL_F_QUIESCE_SCHED_TICK;
+	}
 }
 EXPORT_SYMBOL_GPL(task_isol_exit_to_user_mode);

@@ -26,6 +26,7 @@
 #include <linux/posix-timers.h>
 #include <linux/context_tracking.h>
 #include <linux/mm.h>
+#include <linux/task_isolation.h>
 
 #include <asm/irq_regs.h>
 
@@ -317,7 +318,9 @@ static void tick_nohz_full_kick(void)
  */
 void tick_nohz_full_kick_cpu(int cpu)
 {
-	if (!tick_nohz_full_cpu(cpu))
+	/* TODO: stop sched-tick when task isolation is on. */
+	/* FIXME: find why changing this line is workable */
+	if (!tick_nohz_full_cpu(cpu) || task_isol_quiesce_activated(current, ISOL_F_QUIESCE_SCHED_TICK))
 		return;
 
 	irq_work_queue_on(&per_cpu(nohz_full_kick_work, cpu), cpu);
