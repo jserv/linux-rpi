@@ -96,9 +96,10 @@ struct osn_thread {
 enum {
 	CONF_NONE = 0,
 	CONF_VMSTAT,
+	CONF_SCHED_TICK,
 	TASKISOL_CONF_MAX
 };
-static char *taskisol_conf_str[] = { "none", "vmstat" };
+static char *taskisol_conf_str[] = { "none", "vmstat", "sched_tick" };
 #endif
 
 /*
@@ -1159,10 +1160,16 @@ static int run_osnoise(void)
 
 #ifdef CONFIG_TASK_ISOLATION
 	/* TODO: config and activate task isolation */
-	if (taskisol_conf == CONF_VMSTAT) {
-		qctrl.quiesce_mask = ISOL_F_QUIESCE_VMSTATS;
+	if (taskisol_conf != CONF_NONE) {
+		switch (taskisol_conf) {
+		case CONF_VMSTAT:
+			qctrl.quiesce_mask = ISOL_F_QUIESCE_VMSTATS;
+			break;
+		case CONF_SCHED_TICK:
+			qctrl.quiesce_mask = ISOL_F_QUIESCE_SCHED_TICK;
+			break;
+		}
 		task_isol_cfg_feat_quiesce_set(QUIESCE_CONTROL, &qctrl);
-
 		task_isol_activate_set(ISOL_F_QUIESCE);
 	}
 #endif /* CONFIG_TASK_ISOLATION */
@@ -1244,7 +1251,7 @@ static int run_osnoise(void)
 
 #ifdef CONFIG_TASK_ISOLATION
 	/* TODO: disable task isolation */
-	if (taskisol_conf == CONF_VMSTAT) {
+	if (taskisol_conf != CONF_NONE) {
 		task_isol_activate_set(0);
 	}
 #endif /* CONFIG_TASK_ISOLATION */
