@@ -240,6 +240,10 @@ static bool check_tick_dependency(atomic_t *dep)
 {
 	int val = atomic_read(dep);
 
+	if (task_isol_quiesce_activated(current, ISOL_F_QUIESCE_SCHED_TICK)) {
+		return false;
+	}
+
 	if (val & TICK_DEP_MASK_POSIX_TIMER) {
 		trace_tick_stop(0, TICK_DEP_MASK_POSIX_TIMER);
 		return true;
