@@ -681,6 +681,7 @@ static struct qoptions iopts[] = {
 
 static struct qoptions qopts[] = {
 	{ISOL_F_QUIESCE_VMSTATS, "vmstat_sync"},
+	{ISOL_F_QUIESCE_SCHED_TICK, "scheduler_tick"},
 };
 #define QLEN (sizeof(qopts) / sizeof(struct qoptions))
 
