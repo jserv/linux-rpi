@@ -286,6 +286,9 @@ struct prctl_mm_map {
 
 # define ISOL_F_QUIESCE_MULTIPLE	(1UL << 0)
 #  define ISOL_F_QUIESCE_VMSTATS	(1UL << 0)
+#  define ISOL_F_QUIESCE_SCHED_TICK	(1UL << 1)
+
+#  define ISOL_F_QUIESCE_MASK		(ISOL_F_QUIESCE_VMSTATS | ISOL_F_QUIESCE_SCHED_TICK)
 
 struct task_isol_quiesce_extensions {
 	__u64 flags;

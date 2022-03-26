@@ -104,7 +104,7 @@ int prctl_task_isol_feat_get(unsigned long arg2, unsigned long arg3,
 		if (!q_ext)
 			return -ENOMEM;
 
-		q_ext->supported_quiesce_bits = ISOL_F_QUIESCE_VMSTATS;
+		q_ext->supported_quiesce_bits = ISOL_F_QUIESCE_MASK;
 
 		ret = 0;
 		if (copy_to_user(addr, q_ext, sizeof(*q_ext)))
@@ -269,7 +269,7 @@ static int cfg_feat_quiesce_set(unsigned long arg4, unsigned long arg5)
 	if (i_qctrl->flags != 0)
 		goto out_free;
 
-	if (i_qctrl->quiesce_mask != ISOL_F_QUIESCE_VMSTATS &&
+	if (i_qctrl->quiesce_mask & (~ISOL_F_QUIESCE_MASK) &&
 	    i_qctrl->quiesce_mask != 0)
 		goto out_free;
 
@@ -295,7 +295,7 @@ static int cfg_feat_quiesce_set(unsigned long arg4, unsigned long arg5)
 	info->conf_mask |= ISOL_F_QUIESCE;
 
 	if ((info->active_mask & ISOL_F_QUIESCE) &&
-	    (info->quiesce_mask & ISOL_F_QUIESCE_VMSTATS))
+	    (info->quiesce_mask & ISOL_F_QUIESCE_MASK))
 		set_thread_flag(TIF_TASK_ISOL);
 
 	ret = 0;
@@ -379,7 +379,7 @@ int prctl_task_isol_activate_set(unsigned long arg2, unsigned long arg3,
 	ret = 0;
 
 	if ((info->active_mask & ISOL_F_QUIESCE) &&
-	    (info->quiesce_mask & ISOL_F_QUIESCE_VMSTATS))
+	    (info->quiesce_mask & ISOL_F_QUIESCE_MASK))
 		set_thread_flag(TIF_TASK_ISOL);
 
 out:
